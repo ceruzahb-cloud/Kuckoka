@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Titkos Rejtekhely Vezérlőpult</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap');
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background: #090d16;
+            color: #e2e8f0;
+            user-select: none;
+        }
+
+        .font-orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.4);
+        }
+
+        .glow-red {
+            box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+        }
+
+        .glow-green {
+            box-shadow: 0 0 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .text-glow-cyan {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+        }
+
+        /* Custom slider styles */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #1e293b;
+            border-radius: 8px;
+            height: 8px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 22px;
+            width: 22px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            box-shadow: 0 0 10px #06b6d4;
+        }
+
+        /* Ambient background glow transition */
+        #ambient-overlay {
+            transition: background 0.8s ease, opacity 0.8s ease;
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-6 flex flex-col justify-between relative overflow-x-hidden">
+
+    <!-- Ambient Glow Background -->
+    <div id="ambient-overlay" class="fixed inset-0 pointer-events-none opacity-20 z-0 bg-cyan-500"></div>
+
+    <div class="relative z-10 max-w-5xl mx-auto w-full space-y-6">
+
+        <!-- HEADER / NAVIGATION -->
+        <header class="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/30 text-cyan-400">
+                    <i class="fa-solid fa-shield-halved text-2xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="font-orbitron font-extrabold text-xl md:text-2xl tracking-wider text-cyan-400 text-glow-cyan">
+                        REJTEKHEY BÁZIS <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40 text-cyan-300">v2.5</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 tracking-widest uppercase">Központi Irányító Rendszer</p>
+                </div>
+            </div>
+
+            <!-- Clock & Status -->
+            <div class="flex items-center space-x-4 ml-auto">
+                <button id="bt-connect-btn" onclick="connectBluetooth()" class="px-3 py-2 bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/40 rounded-xl text-blue-300 text-xs font-semibold flex items-center gap-2 transition">
+                    <i class="fa-brands fa-bluetooth-b text-sm" id="bt-icon"></i>
+                    <span id="bt-status-text">Hangszóró Csatlakoztatása</span>
+                </button>
+
+                <div class="text-right">
+                    <div id="clock" class="font-orbitron text-xl font-bold text-slate-100">00:00:00</div>
+                    <div class="text-[10px] text-cyan-400 tracking-wider">BÁZIS IDŐ</div>
+                </div>
+            </div>
+        </header>
+
+        <!-- SECURITY & MODE BANNER -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="glass-panel rounded-2xl p-4 md:col-span-2 flex items-center justify-between">
+                <div>
+                    <div class="text-xs text-slate-400 uppercase tracking-widest mb-1">Bázis Állapota</div>
+                    <div id="security-status-text" class="font-orbitron text-lg font-bold text-green-400 flex items-center gap-2">
+                        <span class="w-3 h-3 rounded-full bg-green-500 animate-ping"></span>
+                        SZABAD A PÁLYA (NYITVA)
+                    </div>
+                </div>
+                <button id="toggle-security-btn" onclick="toggleSecurity()" class="px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-orbitron text-xs font-semibold transition flex items-center gap-2">
+                    <i class="fa-solid fa-lock"></i>
+                    NE ZAVARJ MÓD
+                </button>
+            </div>
+
+            <!-- Quick Preset Modes -->
+            <div class="glass-panel rounded-2xl p-4 flex items-center justify-around">
+                <button onclick="applyPreset('movie')" class="flex flex-col items-center group">
+                    <div class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-film"></i>
+                    </div>
+                    <span class="text-[11px] mt-1 text-slate-300">Mozi</span>
+                </button>
+
+                <button onclick="applyPreset('relax')" class="flex flex-col items-center group">
+                    <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-bed"></i>
+                    </div>
+                    <span class="text-[11px] mt-1 text-slate-300">Pihenés</span>
+                </button>
+
+                <button onclick="applyPreset('study')" class="flex flex-col items-center group">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-book-open"></i>
+                    </div>
+                    <span class="text-[11px] mt-1 text-slate-300">Tanulás</span>
+                </button>
+
+                <button onclick="applyPreset('party')" class="flex flex-col items-center group">
+                    <div class="w-10 h-10 rounded-xl bg-pink-500/20 border border-pink-500/40 flex items-center justify-center text-pink-400 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-bolt"></i>
+                    </div>
+                    <span class="text-[11px] mt-1 text-slate-300">Buli</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- MAIN CONTROL GRID -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- HARDWARE CONTROLS (LIGHTS & PLUG) -->
+            <div class="glass-panel rounded-2xl p-5 space-y-5">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-3">
+                    <h2 class="font-orbitron font-bold text-lg text-cyan-300 flex items-center gap-2">
+                        <i class="fa-solid fa-plug text-cyan-400"></i> Fények & Konnektor Vezérlés
+                    </h2>
+                    <span class="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">Hardware</span>
+                </div>
+
+                <!-- Smart Plug / Lights Toggle -->
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div id="plug-icon-box" class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500">
+                            <i class="fa-solid fa-lightbulb text-lg"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-sm">Karácsonyi Fényfüzér</div>
+                            <div id="plug-status-text" class="text-xs text-slate-400">Konnektor: KIKAPCSOLVA</div>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="plug-toggle" class="sr-only peer" onchange="toggleSmartPlug(this.checked)">
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                    </label>
+                </div>
+
+                <!-- API / IP Settings for Smart Plug -->
+                <div class="text-xs space-y-2">
+                    <button onclick="toggleApiSettings()" class="text-slate-400 hover:text-cyan-400 flex items-center gap-1 transition">
+                        <i class="fa-solid fa-gear"></i> <span id="api-toggle-text">Okos Konnektor IP / Webhook Beállítása</span>
+                    </button>
+                    <div id="api-settings-box" class="hidden space-y-2 pt-2 bg-slate-900/40 p-3 rounded-lg border border-slate-800">
+                        <div>
+                            <label class="block text-[10px] text-slate-400 mb-1">Konnektor / ESP32 HTTP URL (pl. http://192.168.1.50/relay/0)</label>
+                            <input type="text" id="plug-ip-input" placeholder="http://192.168.1.100/turn_on" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500">
+                        </div>
+                        <p class="text-[10px] text-slate-500">Kattintáskor a rendszer HTTP GET kérést küld a megadott címre.</p>
+                    </div>
+                </div>
+
+                <!-- Color Ambient Generator -->
+                <div class="space-y-3 pt-2">
+                    <label class="block text-xs font-semibold text-slate-300 uppercase tracking-wider">Hangulatvilágítás Színe</label>
+                    <div class="flex items-center space-x-3">
+                        <input type="color" id="ambient-color-picker" value="#06b6d4" oninput="changeAmbientColor(this.value)" class="w-12 h-10 rounded bg-transparent border border-slate-700 cursor-pointer">
+                        <div class="flex-1 grid grid-cols-5 gap-2">
+                            <button onclick="changeAmbientColor('#06b6d4')" class="h-8 rounded bg-cyan-500 border border-white/20"></button>
+                            <button onclick="changeAmbientColor('#a855f7')" class="h-8 rounded bg-purple-500 border border-white/20"></button>
+                            <button onclick="changeAmbientColor('#f59e0b')" class="h-8 rounded bg-amber-500 border border-white/20"></button>
+                            <button onclick="changeAmbientColor('#ef4444')" class="h-8 rounded bg-red-500 border border-white/20"></button>
+                            <button onclick="changeAmbientColor('#22c55e')" class="h-8 rounded bg-green-500 border border-white/20"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Brightness Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Fényerő / Intenzitás</span>
+                        <span id="brightness-val" class="text-cyan-400 font-bold">80%</span>
+                    </div>
+                    <input type="range" id="brightness-slider" min="10" max="100" value="80" oninput="updateBrightness(this.value)" class="w-full">
+                </div>
+            </div>
+
+            <!-- AUDIO & SOUND GENERATOR -->
+            <div class="glass-panel rounded-2xl p-5 space-y-5 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between border-b border-slate-700/50 pb-3 mb-4">
+                        <h2 class="font-orbitron font-bold text-lg text-cyan-300 flex items-center gap-2">
+                            <i class="fa-solid fa-compact-disc text-cyan-400"></i> Hanggenerátor & Zene
+                        </h2>
+                        <span class="text-xs bg-cyan-950 text-cyan-400 px-2 py-1 rounded border border-cyan-800">Web Audio API</span>
+                    </div>
+
+                    <!-- Visualizer Canvas -->
+                    <div class="relative h-20 bg-slate-950 rounded-xl overflow-hidden border border-slate-800 mb-4 flex items-center justify-center">
+                        <canvas id="visualizer" class="absolute inset-0 w-full h-full"></canvas>
+                        <span id="visualizer-placeholder" class="text-xs text-slate-600 font-orbitron">HANGGENERÁTOR INAKTÍV</span>
+                    </div>
+
+                    <!-- Sound Generator Controls -->
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-2 gap-2">
+                            <button id="sound-rain-btn" onclick="toggleSound('rain')" class="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left transition flex items-center justify-between">
+                                <span class="text-xs font-semibold"><i class="fa-solid fa-cloud-rain text-blue-400 mr-2"></i> Eső Abalakban</span>
+                                <i class="fa-solid fa-play text-[10px] text-slate-500" id="icon-rain"></i>
+                            </button>
+                            <button id="sound-space-btn" onclick="toggleSound('space')" class="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left transition flex items-center justify-between">
+                                <span class="text-xs font-semibold"><i class="fa-solid fa-user-astronaut text-purple-400 mr-2"></i> Sci-Fi Synth</span>
+                                <i class="fa-solid fa-play text-[10px] text-slate-500" id="icon-space"></i>
+                            </button>
+                            <button id="sound-fire-btn" onclick="toggleSound('fire')" class="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left transition flex items-center justify-between">
+                                <span class="text-xs font-semibold"><i class="fa-solid fa-fire text-amber-500 mr-2"></i> Tábortűz</span>
+                                <i class="fa-solid fa-play text-[10px] text-slate-500" id="icon-fire"></i>
+                            </button>
+                            <button id="sound-drone-btn" onclick="toggleSound('drone')" class="p-3 bg-slate-900 border border-slate-800 hover:border-cyan-500/50 rounded-xl text-left transition flex items-center justify-between">
+                                <span class="text-xs font-semibold"><i class="fa-solid fa-wave-square text-cyan-400 mr-2"></i> Mély Zen-Mód</span>
+                                <i class="fa-solid fa-play text-[10px] text-slate-500" id="icon-drone"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Volume Slider -->
+                <div class="space-y-2 pt-3">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400"><i class="fa-solid fa-volume-high text-cyan-400 mr-1"></i> Fő Hangerő</span>
+                        <span id="volume-val" class="text-cyan-400 font-bold">50%</span>
+                    </div>
+                    <input type="range" id="volume-slider" min="0" max="100" value="50" oninput="updateVolume(this.value)" class="w-full">
+                </div>
+            </div>
+
+        </div>
+
+        <!-- FOOTER / LOG -->
+        <footer class="glass-panel rounded-2xl p-4 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
+            <div class="flex items-center space-x-2">
+                <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                <span>Rendszer állapota: <strong class="text-slate-300">Aktív & Stabil</strong></span>
+            </div>
+            <div>
+                Titkos Rejtekhely Vezérlő &copy; 2026
+            </div>
+        </footer>
+
+    </div>
+
+    <script>
+        // --- REAL-TIME CLOCK ---
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('hu-HU', { hour12: false });
+            document.getElementById('clock').innerText = timeStr;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        // --- SECURITY / NE ZAVARJ MODE ---
+        let isSecurityActive = false;
+        function toggleSecurity() {
+            isSecurityActive = !isSecurityActive;
+            const statusText = document.getElementById('security-status-text');
+            const btn = document.getElementById('toggle-security-btn');
+
+            if (isSecurityActive) {
+                statusText.className = "font-orbitron text-lg font-bold text-red-500 flex items-center gap-2";
+                statusText.innerHTML = `<span class="w-3 h-3 rounded-full bg-red-500 animate-ping"></span> SZIGORÚAN TILOS A BELÉPÉS!`;
+                btn.className = "px-4 py-2.5 rounded-xl bg-green-500/20 hover:bg-green-500/30 border border-green-500/40 text-green-300 font-orbitron text-xs font-semibold transition flex items-center gap-2";
+                btn.innerHTML = `<i class="fa-solid fa-unlock"></i> ZÁR FELOLDÁSA`;
+                changeAmbientColor('#ef4444');
+            } else {
+                statusText.className = "font-orbitron text-lg font-bold text-green-400 flex items-center gap-2";
+                statusText.innerHTML = `<span class="w-3 h-3 rounded-full bg-green-500 animate-ping"></span> SZABAD A PÁLYA (NYITVA)`;
+                btn.className = "px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 font-orbitron text-xs font-semibold transition flex items-center gap-2";
+                btn.innerHTML = `<i class="fa-solid fa-lock"></i> NE ZAVARJ MÓD`;
+                changeAmbientColor('#06b6d4');
+            }
+        }
+
+        // --- AMBIENT LIGHTING & COLOR CONTROLS ---
+        function changeAmbientColor(colorHex) {
+            const overlay = document.getElementById('ambient-overlay');
+            const picker = document.getElementById('ambient-color-picker');
+            overlay.style.backgroundColor = colorHex;
+            picker.value = colorHex;
+        }
+
+        function updateBrightness(val) {
+            document.getElementById('brightness-val').innerText = val + '%';
+            document.getElementById('ambient-overlay').style.opacity = (val / 100) * 0.4;
+        }
+
+        // --- SMART PLUG / LIGHTS CONTROLLER ---
+        let isPlugOn = false;
+        function toggleSmartPlug(state) {
+            isPlugOn = state;
+            const statusText = document.getElementById('plug-status-text');
+            const iconBox = document.getElementById('plug-icon-box');
+            const apiUrl = document.getElementById('plug-ip-input').value.trim();
+
+            if (isPlugOn) {
+                statusText.innerText = "Konnektor: BEKAPCSOLVA";
+                statusText.className = "text-xs text-cyan-400 font-semibold";
+                iconBox.className = "w-10 h-10 rounded-lg bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 glow-cyan";
+            } else {
+                statusText.innerText = "Konnektor: KIKAPCSOLVA";
+                statusText.className = "text-xs text-slate-400";
+                iconBox.className = "w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-500";
+            }
+
+            // Send HTTP request to hardware if IP/URL is configured
+            if (apiUrl) {
+                const targetUrl = apiUrl + (apiUrl.includes('?') ? '&' : '?') + 'state=' + (isPlugOn ? 'on' : 'off');
+                fetch(targetUrl, { mode: 'no-cors' }).catch(err => console.log('HTTP Plug Command Sent:', err));
+            }
+        }
+
+        function toggleApiSettings() {
+            const box = document.getElementById('api-settings-box');
+            box.classList.toggle('hidden');
+        }
+
+        // --- WEB BLUETOOTH SPEAKER INTEGRATION ---
+        async function connectBluetooth() {
+            const btnText = document.getElementById('bt-status-text');
+            const btIcon = document.getElementById('bt-icon');
+
+            if (!navigator.bluetooth) {
+                alert('A böngésződ nem támogatja a Web Bluetooth API-t. Használj Chrome-ot vagy Edge-et!');
+                return;
+            }
+
+            try {
+                btnText.innerText = 'Keresés...';
+                const device = await navigator.bluetooth.requestDevice({
+                    acceptAllDevices: true,
+                    optionalServices: ['battery_service']
+                });
+
+                btnText.innerText = device.name || 'Xiaomi Hangszóró';
+                btIcon.className = "fa-brands fa-bluetooth-b text-sm text-cyan-400 animate-bounce";
+                alert(`Sikeresen csatlakozva a következő eszközhöz: ${device.name || 'Bluetooth Hangszóró'}`);
+            } catch (error) {
+                console.log('Bluetooth Csatlakozás Megszakítva:', error);
+                btnText.innerText = 'Bluetooth Csatlakozás';
+                btIcon.className = "fa-brands fa-bluetooth-b text-sm";
+            }
+        }
+
+        // --- PRESET MODES ---
+        function applyPreset(mode) {
+            if (mode === 'movie') {
+                changeAmbientColor('#a855f7');
+                updateBrightness(20);
+                document.getElementById('brightness-slider').value = 20;
+                toggleSmartPlug(false);
+                document.getElementById('plug-toggle').checked = false;
+            } else if (mode === 'relax') {
+                changeAmbientColor('#f59e0b');
+                updateBrightness(40);
+                document.getElementById('brightness-slider').value = 40;
+                toggleSmartPlug(true);
+                document.getElementById('plug-toggle').checked = true;
+                if (!activeSound) toggleSound('rain');
+            } else if (mode === 'study') {
+                changeAmbientColor('#06b6d4');
+                updateBrightness(90);
+                document.getElementById('brightness-slider').value = 90;
+                toggleSmartPlug(true);
+                document.getElementById('plug-toggle').checked = true;
+            } else if (mode === 'party') {
+                changeAmbientColor('#pink-500');
+                changeAmbientColor('#ec4899');
+                updateBrightness(100);
+                document.getElementById('brightness-slider').value = 100;
+                toggleSmartPlug(true);
+                document.getElementById('plug-toggle').checked = true;
+                if (!activeSound) toggleSound('space');
+            }
+        }
+
+        // --- WEB AUDIO API SYNTHESIZER ---
+        let audioCtx = null;
+        let masterGain = null;
+        let activeSound = null;
+        let currentOsc = null;
+        let currentNoise = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                masterGain = audioCtx.createGain();
+                masterGain.gain.value = 0.5;
+                masterGain.connect(audioCtx.destination);
+            }
+        }
+
+        function updateVolume(val) {
+            document.getElementById('volume-val').innerText = val + '%';
+            if (masterGain) {
+                masterGain.gain.value = val / 100;
+            }
+        }
+
+        function stopCurrentSound() {
+            if (currentOsc) {
+                try { currentOsc.stop(); } catch(e){}
+                currentOsc = null;
+            }
+            if (currentNoise) {
+                try { currentNoise.stop(); } catch(e){}
+                currentNoise = null;
+            }
+            document.querySelectorAll('[id^="icon-"]').forEach(el => el.className = 'fa-solid fa-play text-[10px] text-slate-500');
+            document.getElementById('visualizer-placeholder').style.display = 'block';
+        }
+
+        function toggleSound(type) {
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+
+            if (activeSound === type) {
+                stopCurrentSound();
+                activeSound = null;
+                return;
+            }
+
+            stopCurrentSound();
+            activeSound = type;
+            document.getElementById('visualizer-placeholder').style.display = 'none';
+
+            const iconEl = document.getElementById(`icon-${type}`);
+            if (iconEl) iconEl.className = 'fa-solid fa-pause text-[10px] text-cyan-400 animate-pulse';
+
+            if (type === 'space') {
+                currentOsc = audioCtx.createOscillator();
+                let lfo = audioCtx.createOscillator();
+                let lfoGain = audioCtx.createGain();
+
+                currentOsc.type = 'sawtooth';
+                currentOsc.frequency.setValueAtTime(110, audioCtx.currentTime);
+
+                lfo.frequency.setValueAtTime(0.2, audioCtx.currentTime);
+                lfoGain.gain.setValueAtTime(30, audioCtx.currentTime);
+
+                lfo.connect(currentOsc.frequency);
+                currentOsc.connect(masterGain);
+
+                currentOsc.start();
+                lfo.start();
+            } else if (type === 'drone') {
+                currentOsc = audioCtx.createOscillator();
+                currentOsc.type = 'sine';
+                currentOsc.frequency.setValueAtTime(65.41, audioCtx.currentTime); // C2 note
+                currentOsc.connect(masterGain);
+                currentOsc.start();
+            } else if (type === 'rain' || type === 'fire') {
+                // Pink / White Noise Generator for Ambient Rain/Fire
+                let bufferSize = audioCtx.sampleRate * 2;
+                let noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                let output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                currentNoise = audioCtx.createBufferSource();
+                currentNoise.buffer = noiseBuffer;
+                currentNoise.loop = true;
+
+                let filter = audioCtx.createBiquadFilter();
+                filter.type = type === 'rain' ? 'lowpass' : 'bandpass';
+                filter.frequency.value = type === 'rain' ? 800 : 400;
+
+                currentNoise.connect(filter);
+                filter.connect(masterGain);
+                currentNoise.start();
+            }
+            startVisualizer();
+        }
+
+        // --- CANVAS AUDIO VISUALIZER ---
+        const canvas = document.getElementById('visualizer');
+        const ctx = canvas.getContext('2d');
+        let animId = null;
+
+        function startVisualizer() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            function render() {
+                if (!activeSound) {
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    return;
+                }
+                animId = requestAnimationFrame(render);
+                ctx.fillStyle = 'rgba(2, 6, 23, 0.2)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                const time = Date.now() * 0.003;
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#06b6d4';
+
+                for (let x = 0; x < canvas.width; x += 5) {
+                    const y = canvas.height / 2 + Math.sin(x * 0.03 + time) * 15 * Math.cos(time * 0.5);
+                    if (x === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+            }
+            render();
+        }
+    </script>
+</body>
+</html>
